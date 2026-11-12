@@ -6,20 +6,9 @@ The CD player has no digital output of any kind, so it can't tell anyone what it
 
 ## How it works
 
-```
- MusicBrainz + Cover Art Archive
-              │  (tracklist, durations, cover)
-              ▼
-   catalog-service (Flask, on the Pi) ──writes──►  <HA config>/www/albums/
-              ▲                                      ├─ index.json
-              │ rest_command                         └─ <slug>/ tracks.json, cover.raw, cover_full.jpg, cover.bmp
-              │                                                ▲
-      Home Assistant  ◄── input_select.loaded_album ──polls──  │ HTTP
-      (dashboard: add albums, pick the disc)                   │
-                                                          ESP32-C3 + e-paper
-                                                     (cover, artist, album, current track,
-                                                      auto-advances on a per-track timer)
-```
+![How it works: Home Assistant, catalog service, shared album folder, ESP32 and e-paper display](docs/how-it-works.svg)
+
+Arrows 1 to 4 happen when you catalog an album; arrows 5 and 6 repeat while a disc is selected. The CD player is deliberately not connected to anything.
 
 1. **Catalog an album once.** In the Home Assistant dashboard you enter artist and album. The catalog service looks the release up on MusicBrainz, saves the tracklist with durations, downloads the cover from the Cover Art Archive, and produces a 122×122 dithered 1-bit bitmap for the e-paper plus a colour thumbnail for the dashboard.
 2. **Pick the disc.** Selecting an album in the `Loaded Disc` dropdown tells the ESP32 what is in the player.
@@ -30,6 +19,7 @@ There is no connection between the CD player and the ESP32 (see [Known limitatio
 ## Repository layout
 
 ```
+docs/              Architecture diagram
 pi-service/        Flask catalog service + systemd unit + env example
 home-assistant/    Config snippets: rest_commands, sensors, helpers, scripts, automations, dashboard cards
 esp32-firmware/    Arduino sketch for the ESP32-C3 + e-paper display
