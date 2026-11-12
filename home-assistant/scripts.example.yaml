@@ -1,0 +1,28 @@
+# Add to scripts.yaml (or under `script:` in configuration.yaml if you don't use !include).
+
+# One-tap: auto-picks the best MusicBrainz release (prefers "high" quality ones)
+catalog_new_album:
+  alias: Catalog New Album
+  sequence:
+    - service: rest_command.catalog_album
+      data:
+        artist: "{{ states('input_text.catalog_artist') }}"
+        album: "{{ states('input_text.catalog_album_title') }}"
+
+# Two-step: search first, check the candidates card, pick a number, then confirm
+search_new_album:
+  alias: Search for Album
+  sequence:
+    - service: rest_command.search_album
+      data:
+        artist: "{{ states('input_text.catalog_artist') }}"
+        album: "{{ states('input_text.catalog_album_title') }}"
+
+confirm_new_album:
+  alias: Confirm Selected Album
+  sequence:
+    - service: rest_command.confirm_album
+      data:
+        artist: "{{ states('input_text.catalog_artist') }}"
+        album: "{{ states('input_text.catalog_album_title') }}"
+        mbid: "{{ state_attr('sensor.search_results', 'candidates')[states('input_number.search_result_choice')|int - 1].mbid }}"

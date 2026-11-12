@@ -1,0 +1,49 @@
+# OPTIONAL — add to automations.yaml.
+#
+# Why: input_select.loaded_album is a UI helper. The catalog service fills its options with
+# input_select.set_options, but that only lives in memory — after an HA restart the dropdown goes
+# back to its stored placeholder option and looks empty until you catalog something again.
+# These two automations remember the selected album and rebuild the options from the catalog
+# (sensor.album_catalog) on every HA start. Requires input_text.loaded_album_memory.
+
+- alias: Remember loaded album
+  id: remember_loaded_album
+  triggers:
+    - trigger: state
+      entity_id: input_select.loaded_album
+  conditions:
+    - condition: template
+      value_template: >
+        {{ trigger.to_state.state in
+           ((state_attr('sensor.album_catalog', 'albums') or []) | map(attribute='name') | list) }}
+  actions:
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.loaded_album_memory
+      data:
+        value: "{{ trigger.to_state.state }}"
+
+- alias: Restore album dropdown on start
+  id: restore_album_dropdown
+  triggers:
+    - trigger: homeassistant
+      event: start
+  actions:
+    - variables:
+        remembered: "{{ states('input_text.loaded_album_memory') }}"
+    - wait_template: "{{ (state_attr('sensor.album_catalog', 'albums') or []) | length > 0 }}"
+      timeout: "00:02:00"
+      continue_on_timeout: false
+    - action: input_select.set_options
+      target:
+        entity_id: input_select.loaded_album
+      data:
+        options: "{{ state_attr('sensor.album_catalog', 'albums') | map(attribute='name') | list }}"
+    - condition: template
+      value_template: >
+        {{ remembered in (state_attr('sensor.album_catalog', 'albums') | map(attribute='name') | list) }}
+    - action: input_select.select_option
+      target:
+        entity_id: input_select.loaded_album
+      data:
+        option: "{{ remembered }}"

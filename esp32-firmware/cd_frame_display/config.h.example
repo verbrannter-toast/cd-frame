@@ -1,0 +1,13 @@
+// Copy this file to config.h (same folder) and fill it in. config.h is git-ignored.
+#pragma once
+
+const char* WIFI_SSID = "YOUR_WIFI_SSID";
+const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
+
+// Use the Pi's LAN IP if homeassistant.local doesn't resolve on your network (mDNS)
+const char* HA_HOST = "http://homeassistant.local:8123";
+// Home Assistant: Profile -> Security -> Long-Lived Access Tokens -> Create Token
+const char* HA_TOKEN = "PASTE_YOUR_LONG_LIVED_TOKEN_HERE";
+const char* ENTITY_ID = "input_select.loaded_album";
+
+const unsigned long POLL_INTERVAL_MS = 15000; // how often to check for an album change

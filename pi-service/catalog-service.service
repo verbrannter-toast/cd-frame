@@ -1,0 +1,14 @@
+[Unit]
+Description=CD Frame Catalog Service
+After=network.target
+
+[Service]
+# Adjust the user and the path to wherever you cloned the repo
+User=youruser
+WorkingDirectory=/home/youruser/cd-frame/pi-service
+EnvironmentFile=/etc/catalog-service.env
+ExecStart=/usr/bin/python3 /home/youruser/cd-frame/pi-service/catalog_service.py
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

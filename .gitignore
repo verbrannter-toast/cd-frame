@@ -1,0 +1,17 @@
+# Secrets
+esp32-firmware/cd_frame_display/config.h
+*.env
+!*.env.example
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Generated album data (cover art belongs to its rights holders)
+catalog_output/
+albums/
+
+# OS / editor
+.DS_Store
+.vscode/

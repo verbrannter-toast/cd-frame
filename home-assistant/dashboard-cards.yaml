@@ -1,0 +1,43 @@
+# Dashboard cards. In the dashboard editor: Add Card -> Manual, paste one card at a time.
+
+# 1) Now playing: pick which CD is in the player (the ESP32 follows this entity)
+type: entities
+title: Now Playing
+entities:
+  - entity: input_select.loaded_album
+    name: Loaded Disc
+
+---
+# 2) Add albums: type artist + album, then either tap the one-tap script,
+#    or use Search -> check candidates -> set the number -> Confirm
+type: entities
+title: Catalog an Album
+entities:
+  - input_text.catalog_artist
+  - input_text.catalog_album_title
+  - script.catalog_new_album
+  - script.search_new_album
+  - input_number.search_result_choice
+  - script.confirm_new_album
+
+---
+# 3) Search candidates with links to MusicBrainz so you can verify the edition
+type: markdown
+title: Search Results
+content: |
+  {% for c in state_attr('sensor.search_results', 'candidates') %}
+  **{{ c.index }}.** [{{ c.title }}]({{ c.url }}) — {{ c.artist }}, {{ c.date }}, {{ c.country }}, quality: {{ c.quality }}, {{ c.track_count }} tracks
+
+  {% endfor %}
+
+---
+# 4) The library with cover thumbnails
+type: markdown
+title: Album Catalog
+content: |
+  {% for album in state_attr('sensor.album_catalog', 'albums') %}
+  <div style="display:flex; align-items:center; margin-bottom:8px;">
+    <img src="/local/albums/{{ album.slug }}/cover_full.jpg" width="50" style="border-radius:4px; margin-right:10px; flex-shrink:0;">
+    <span>{{ album.name }}</span>
+  </div>
+  {% endfor %}
