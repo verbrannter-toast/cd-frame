@@ -26,3 +26,31 @@ confirm_new_album:
         artist: "{{ states('input_text.catalog_artist') }}"
         album: "{{ states('input_text.catalog_album_title') }}"
         mbid: "{{ state_attr('sensor.search_results', 'candidates')[states('input_number.search_result_choice')|int - 1].mbid }}"
+
+# Delete the album picked in input_select.remove_album (index entry + cover/tracklist folder).
+# Only runs while input_boolean.confirm_remove_album is on, to avoid accidental taps.
+remove_selected_album:
+  alias: Remove Selected Album
+  sequence:
+    - if:
+        - condition: state
+          entity_id: input_boolean.confirm_remove_album
+          state: "on"
+        - condition: template
+          value_template: "{{ states('input_select.remove_album') not in ['(no albums)', 'unknown', 'unavailable'] }}"
+      then:
+        - service: rest_command.remove_album
+          data:
+            name: "{{ states('input_select.remove_album') }}"
+        - service: input_boolean.turn_off
+          target:
+            entity_id: input_boolean.confirm_remove_album
+        # Refresh the catalog card now instead of waiting for the 60 s scan_interval.
+        - service: homeassistant.update_entity
+          target:
+            entity_id: sensor.album_catalog
+      else:
+        - service: persistent_notification.create
+          data:
+            title: Album not removed
+            message: Pick an album and switch on "Confirm removal" first.

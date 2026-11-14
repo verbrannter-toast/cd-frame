@@ -39,6 +39,12 @@
         entity_id: input_select.loaded_album
       data:
         options: "{{ state_attr('sensor.album_catalog', 'albums') | map(attribute='name') | list }}"
+    # Same for the picker on the "Remove an Album" card
+    - action: input_select.set_options
+      target:
+        entity_id: input_select.remove_album
+      data:
+        options: "{{ state_attr('sensor.album_catalog', 'albums') | map(attribute='name') | list }}"
     - condition: template
       value_template: >
         {{ remembered in (state_attr('sensor.album_catalog', 'albums') | map(attribute='name') | list) }}

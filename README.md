@@ -98,6 +98,7 @@ Create the Home Assistant token under *Profile → Security → Long-Lived Acces
 
 - **Add a CD:** type artist and album into *Catalog an Album*. Either tap *Catalog New Album* (auto-picks the best release, preferring MusicBrainz releases marked high quality), or tap *Search for Album*, look at the candidates (each links to its MusicBrainz page), set the number and tap *Confirm Selected Album*.
 - **Play a CD:** put it in the player, select it under *Loaded Disc*, and press play on the player. Do both at about the same time, because the ESP32's timer starts when it loads the album.
+- **Remove a CD:** in *Remove an Album*, pick the album, switch on *Confirm removal* and tap *Remove selected album*. This deletes its entry from `index.json` and its folder (tracklist and cover files), refreshes both dropdowns, and turns the confirmation switch back off. If the removed album was the loaded one, the dropdown falls back to the first remaining album.
 - Cataloguing the same artist/album again overwrites its folder, which is how to fix a wrong edition.
 
 ## Troubleshooting

@@ -41,3 +41,16 @@ content: |
     <span>{{ album.name }}</span>
   </div>
   {% endfor %}
+
+---
+# 5) Remove an album: pick it, switch on "Confirm removal", tap the button.
+#    Deletes the catalog entry and its folder (tracklist + cover files).
+type: entities
+title: Remove an Album
+entities:
+  - entity: input_select.remove_album
+    name: Album to remove
+  - entity: input_boolean.confirm_remove_album
+    name: Confirm removal
+  - entity: script.remove_selected_album
+    name: Remove selected album

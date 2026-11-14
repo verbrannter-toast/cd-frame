@@ -27,6 +27,11 @@ rest_command:
     method: POST
     content_type: "application/json"
     payload: '{"artist": "{{ artist }}", "album": "{{ album }}", "mbid": "{{ mbid }}"}'
+  remove_album:
+    url: "http://localhost:5005/remove"
+    method: POST
+    content_type: "application/json"
+    payload: '{"name": {{ name | tojson }}}'
 
 # --- Read the catalog files back into HA ---
 # Current HA requires the `command_line:` key; the old `sensor: - platform: command_line`
@@ -64,6 +69,21 @@ input_number:
     min: 1
     max: 10
     step: 1
+
+# --- Removing albums (see the "Remove an Album" card in dashboard-cards.yaml) ---
+# The options of this dropdown are overwritten by the catalog service (and rebuilt on
+# HA start by automations.example.yaml); the placeholder only exists because a dropdown
+# needs at least one option.
+input_select:
+  remove_album:
+    name: Album to remove
+    options:
+      - "(no albums)"
+
+# Safety switch: the remove script only runs while this is on, and turns it off again.
+input_boolean:
+  confirm_remove_album:
+    name: Confirm removal
 
 # Scripts: if your configuration.yaml has `script: !include scripts.yaml`, put the scripts from
 # scripts.example.yaml into scripts.yaml — do NOT add a second `script:` key here.

@@ -13,6 +13,7 @@ Endpoints (all POST, JSON body, listening on 127.0.0.1:5005):
     /catalog  {artist, album}        auto-pick best MusicBrainz release and catalog it
     /search   {artist, album}        write up to 10 candidates to search_results.json
     /confirm  {artist, album, mbid}  catalog one specific release
+    /remove   {name} or {slug}       delete a catalogued album (index entry + its folder)
 
 Requirements:
     pip install -r requirements.txt   (add --break-system-packages on Debian/Raspberry Pi OS)
@@ -27,6 +28,7 @@ survives reboots.
 import json
 import os
 import re
+import shutil
 import time
 from io import BytesIO
 from pathlib import Path
@@ -45,6 +47,11 @@ USER_AGENT = os.environ.get("CATALOG_USER_AGENT", "CDFrameCatalog/1.0 (your-emai
 HA_URL = os.environ.get("HA_URL", "http://localhost:8123")   # HA's host-mapped port
 HA_TOKEN = os.environ.get("HA_TOKEN", "")                    # Long-Lived Access Token
 HA_ENTITY = os.environ.get("HA_ENTITY", "input_select.loaded_album")
+# Optional second dropdown used by the "Remove an Album" dashboard card. Set to an
+# empty string to disable. If the helper doesn't exist yet, the failure is only logged.
+HA_REMOVE_ENTITY = os.environ.get("HA_REMOVE_ENTITY", "input_select.remove_album")
+# input_select can't have an empty option list, so this is shown when the catalog is empty.
+EMPTY_PLACEHOLDER = "(no albums)"
 
 # The HOST path that Docker maps into HA's /config/www/albums, i.e. the
 # folder <your HA config dir>/www/albums on the Pi. It MUST sit inside the
@@ -171,14 +178,24 @@ def save_index(index):
     INDEX_FILE.write_text(json.dumps({"albums": index}, indent=2))
 
 
-def update_ha_dropdown(index):
-    names = [entry["name"] for entry in index]
+def _set_options(entity_id, names):
     resp = requests.post(
         f"{HA_URL}/api/services/input_select/set_options",
         headers={"Authorization": f"Bearer {HA_TOKEN}", "Content-Type": "application/json"},
-        json={"entity_id": HA_ENTITY, "options": names},
+        json={"entity_id": entity_id, "options": names},
     )
     resp.raise_for_status()
+
+
+def update_ha_dropdown(index):
+    names = [entry["name"] for entry in index] or [EMPTY_PLACEHOLDER]
+    _set_options(HA_ENTITY, names)
+    if HA_REMOVE_ENTITY:
+        # Best effort: the main dropdown matters more than the removal picker.
+        try:
+            _set_options(HA_REMOVE_ENTITY, names)
+        except requests.RequestException as e:
+            print(f"[catalog] Could not update {HA_REMOVE_ENTITY}: {e}", flush=True)
 
 
 # ---------------------------------------------------------------------------
@@ -214,6 +231,35 @@ def catalog_from_release(artist, album, mbid):
     update_ha_dropdown(index)
 
     return {"success": True, "track_count": len(tracks), "cover_saved": cover_saved}
+
+
+def remove_album(name=None, slug=None):
+    """Delete a catalogued album: drop it from index.json, remove its folder
+    (tracks.json, cover files) and refresh the HA dropdowns. Look-up is by the
+    display name shown in the dropdown, or by slug."""
+    index = load_index()
+    entry = next(
+        (e for e in index if (slug and e.get("slug") == slug) or (name and e.get("name") == name)),
+        None,
+    )
+    if entry is None:
+        return {"success": False, "error": f"Album not found: {name or slug}"}
+
+    # Only ever delete a folder that sits directly inside WWW_ALBUMS_DIR, so a
+    # bad or hand-edited slug (e.g. "../..") can never delete anything else.
+    album_dir = (WWW_ALBUMS_DIR / entry["slug"]).resolve()
+    base = WWW_ALBUMS_DIR.resolve()
+    folder_removed = False
+    if album_dir.parent == base and album_dir.is_dir():
+        shutil.rmtree(album_dir)
+        folder_removed = True
+    elif album_dir.exists():
+        return {"success": False, "error": f"Refusing to delete unexpected path: {album_dir}"}
+
+    index = [e for e in index if e is not entry]
+    save_index(index)
+    update_ha_dropdown(index)
+    return {"success": True, "removed": entry["name"], "folder_removed": folder_removed, "remaining": len(index)}
 
 
 def catalog_album(artist, album):
@@ -307,6 +353,22 @@ def confirm_endpoint():
         return jsonify(result)
     except Exception as e:
         print(f"[confirm] ERROR: {e}", flush=True)
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/remove", methods=["POST"])
+def remove_endpoint():
+    data = request.get_json(force=True)
+    name, slug = data.get("name"), data.get("slug")
+    if not name and not slug:
+        return jsonify({"success": False, "error": "name or slug is required"}), 400
+    print(f"[remove] Removing '{name or slug}' ...", flush=True)
+    try:
+        result = remove_album(name=name, slug=slug)
+        print(f"[remove] Done: {result}", flush=True)
+        return jsonify(result), (200 if result["success"] else 404)
+    except Exception as e:
+        print(f"[remove] ERROR: {e}", flush=True)
         return jsonify({"success": False, "error": str(e)}), 500
 
 
