@@ -69,6 +69,13 @@ String currentAlbumTitle = "";
 
 unsigned long lastPollMillis = 0;
 
+// Home Assistant entity this sketch publishes the current track to. Created
+// on the fly by the REST API (no HA configuration needed); read by the
+// Discord presence companion in desktop-presence/. Kept here rather than in
+// config.h so existing config.h files keep working.
+static const char* NOW_PLAYING_ENTITY = "sensor.cd_frame_now_playing";
+bool finishedReported = false;  // so "finished" is only posted once per album
+
 // ---------------------------------------------------------------------------
 // Cover art — 122x122, matches GxEPD2 raw format written by save_epd_raw()
 // in the Python cataloging script: MSB-first packed 1-bit, no header.
@@ -164,6 +171,44 @@ String httpGet(String url, bool withAuth) {
   return body;
 }
 
+// ---------------------------------------------------------------------------
+// Publish what the display is showing to Home Assistant. Called exactly once
+// per track start (and once at the end of the album), so the entity's
+// last_updated timestamp is the moment the track began. Best effort: a
+// failure only costs a log line and at most the short timeout below.
+// state is "playing" or "finished".
+// ---------------------------------------------------------------------------
+void reportNowPlaying(const char* state) {
+  if (trackCount == 0 || WiFi.status() != WL_CONNECTED) return;
+
+  DynamicJsonDocument doc(2048);
+  doc["state"] = state;
+  JsonObject attrs = doc.createNestedObject("attributes");
+  attrs["friendly_name"] = "CD Frame Now Playing";
+  attrs["album_name"] = currentAlbumName;
+  attrs["slug"] = currentAlbumSlug;
+  attrs["artist"] = currentArtist;
+  attrs["album"] = currentAlbumTitle;
+  attrs["track_number"] = currentTrackIndex + 1;
+  attrs["track_count"] = trackCount;
+  attrs["track_title"] = trackTitles[currentTrackIndex];
+  attrs["track_duration_ms"] = trackDurationsMs[currentTrackIndex];
+
+  String body;
+  serializeJson(doc, body);
+
+  HTTPClient http;
+  http.begin(String(HA_HOST) + "/api/states/" + NOW_PLAYING_ENTITY);
+  http.setTimeout(3000);
+  http.addHeader("Authorization", String("Bearer ") + HA_TOKEN);
+  http.addHeader("Content-Type", "application/json");
+  int code = http.POST(body);
+  if (code != 200 && code != 201) {
+    Serial.printf("Now-playing report failed, code=%d\n", code);
+  }
+  http.end();
+}
+
 String formatMinSec(unsigned long ms) {
   unsigned long totalSec = ms / 1000;
   unsigned long m = totalSec / 60;
@@ -246,6 +291,8 @@ void loadAlbum(String albumName) {
   currentAlbumName = albumName;
   currentTrackIndex = 0;
   trackStartMillis = millis();
+  finishedReported = false;
+  reportNowPlaying("playing");
   renderCurrentTrack();
 }
 
@@ -285,9 +332,14 @@ void tickTrackTimer() {
     currentTrackIndex++;
     if (currentTrackIndex >= trackCount) {
       currentTrackIndex = trackCount - 1; // stop at the last track rather than wrap
+      if (!finishedReported) {
+        finishedReported = true;
+        reportNowPlaying("finished");
+      }
       return;
     }
     trackStartMillis = millis();
+    reportNowPlaying("playing");
     wakeDisplay();
     renderCurrentTrack();
   }

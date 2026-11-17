@@ -1,0 +1,21 @@
+# Linux (systemd user service). Install with:
+#   mkdir -p ~/.config/systemd/user
+#   cp cd-frame-presence.service ~/.config/systemd/user/
+#   # edit the two paths below first (%h is your home directory)
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now cd-frame-presence
+#   journalctl --user -u cd-frame-presence -f
+#
+# It starts at login and keeps retrying until Discord is running, so the start order doesn't matter.
+
+[Unit]
+Description=CD Frame Discord Rich Presence
+
+[Service]
+Type=simple
+ExecStart=%h/cd-frame/desktop-presence/.venv/bin/python %h/cd-frame/desktop-presence/cd_frame_presence.py
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

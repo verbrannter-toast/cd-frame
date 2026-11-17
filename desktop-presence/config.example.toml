@@ -1,0 +1,25 @@
+# Copy this file to config.toml (same folder) and fill it in. config.toml is git-ignored.
+
+# Home Assistant, as reachable from THIS PC (use the Pi's LAN IP if homeassistant.local doesn't resolve)
+ha_url = "http://homeassistant.local:8123"
+# Profile -> Security -> Long-Lived Access Tokens -> Create Token (the ESP32's token works too)
+ha_token = "PASTE_YOUR_LONG_LIVED_TOKEN_HERE"
+
+# Application ID of your Discord application (see the README: discord.com/developers/applications).
+# The application's NAME is what Discord shows after "Listening to".
+discord_client_id = "123456789012345678"
+
+# --- Optional ---------------------------------------------------------------
+# Entity the ESP32 firmware publishes to (only change if you changed it in the sketch)
+# entity_id = "sensor.cd_frame_now_playing"
+
+# How often to ask Home Assistant, in seconds
+# poll_interval = 5
+
+# How long after a track should have ended (with no new track reported) before the
+# presence is cleared. This is what ends the presence when the ESP32 loses power.
+# end_grace_seconds = 30
+
+# Image shown when no cover art can be found: an art-asset key uploaded to your Discord
+# application, or a public image URL.
+# fallback_image = ""
