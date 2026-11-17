@@ -309,12 +309,12 @@ void renderCurrentTrack() {
 
   int textX = COVER_WIDTH + 8; // start just right of the cover
 
-  u8g2Fonts.setFont(u8g2_font_helvB10_tf);
-  drawString(textX, 8, currentArtist);
-  drawString(textX, 28, currentAlbumTitle);
-
   u8g2Fonts.setFont(u8g2_font_helvB14_tf);
   drawString(textX, 55, trackTitles[currentTrackIndex]); // long titles overflow — same known limitation as the breadboard prototype
+
+  u8g2Fonts.setFont(u8g2_font_helvB08_tf);
+  drawString(textX, 70, currentArtist);
+  drawString(textX, 82, currentAlbumTitle);
 
   display.drawRect(0, 0, COVER_WIDTH, COVER_HEIGHT, GxEPD_BLACK); // frame around the cover only — its top/left/bottom already sit flush on the screen edge
   display.display(false); // full refresh — track changes are minutes apart, well within the panel's refresh guidance
