@@ -15,3 +15,6 @@ albums/
 # OS / editor
 .DS_Store
 .vscode/
+
+# Desktop presence companion config (contains the HA token)
+desktop-presence/config.toml

@@ -24,6 +24,7 @@ pi-service/        Flask catalog service + systemd unit + env example
 home-assistant/    Config snippets: rest_commands, sensors, helpers, scripts, automations, dashboard cards
 esp32-firmware/    Arduino sketch for the ESP32-C3 + e-paper display
 hardware/          3D printed parts, photos, wiring notes
+desktop-presence/  Optional Discord Rich Presence companion (Windows 11 + Linux)
 ```
 
 ## Hardware
@@ -94,6 +95,47 @@ Create the Home Assistant token under *Profile → Security → Long-Lived Acces
 2. In `esp32-firmware/cd_frame_display/`, copy `config.h.example` to `config.h` and fill in WiFi, the Home Assistant address and the token. `config.h` is git-ignored.
 3. Flash the `cd_frame_display` sketch.
 
+### 4. Discord Rich Presence (optional)
+
+Shows what the frame is playing as a "Listening to ..." activity on your Discord profile: track, artist, album cover and a progress bar. It follows the e-paper display, so it appears when an album is loaded and disappears when the ESP32 loses power or the album ends.
+
+How it works: the ESP32 posts the current track to Home Assistant as `sensor.cd_frame_now_playing` at every track start (no Home Assistant configuration needed, the REST API creates the entity). A small script on your PC polls that entity and talks to the local Discord client. Discord only accepts presence from a program on the same machine as the client, which is why this runs on your PC and not on the Pi. The cover comes from the Cover Art Archive (Discord needs a public image URL), looked up through the MusicBrainz id in the album's `tracks.json`.
+
+**Reflash the ESP32 first.** The sketch change that publishes the entity is part of this feature.
+
+**a) Create the Discord application** (once). Go to <https://discord.com/developers/applications>, click *New Application* and name it. **That name is what Discord shows after "Listening to"**, so something like `CD Frame` works well. Copy the *Application ID* from *General Information*. Optionally upload a fallback image under *Rich Presence → Art Assets*.
+
+**b) Install and configure** (both systems need Python 3.11+ and the Discord desktop app running, not the browser version):
+
+```bash
+cd desktop-presence
+python -m venv .venv
+# Linux:    .venv/bin/pip install -r requirements.txt
+# Windows:  .venv\Scripts\pip install -r requirements.txt
+cp config.example.toml config.toml        # Windows: copy config.example.toml config.toml
+# edit config.toml: ha_url, ha_token, discord_client_id
+```
+
+Test it by hand before installing it as a service. `--dry-run` only logs what it would show, without Discord:
+
+```bash
+.venv/bin/python cd_frame_presence.py --dry-run -v     # Windows: .venv\Scripts\python ...
+.venv/bin/python cd_frame_presence.py -v
+```
+
+**c) Run it at login.**
+
+- **CachyOS / Linux:** edit the two paths in `cd-frame-presence.service`, then:
+  ```bash
+  mkdir -p ~/.config/systemd/user && cp cd-frame-presence.service ~/.config/systemd/user/
+  systemctl --user daemon-reload && systemctl --user enable --now cd-frame-presence
+  journalctl --user -u cd-frame-presence -f
+  ```
+  The script finds Discord through its local IPC socket in `$XDG_RUNTIME_DIR`. A native Discord package works as is. A Flatpak or Snap Discord keeps that socket inside its sandbox, where the script usually can't reach it (not tested here); if the log keeps saying "Discord is not reachable" while Discord is open, that is the likely cause.
+- **Windows 11:** run `powershell -ExecutionPolicy Bypass -File .\install-windows.ps1` in the `desktop-presence` folder. It registers a hidden scheduled task that starts at every logon. The log is `%LOCALAPPDATA%\cd-frame-presence\presence.log`. Remove it with `Unregister-ScheduledTask -TaskName "CD Frame Presence" -Confirm:$false`.
+
+Make sure *Settings → Activity Privacy → Share your detected activities* is on in Discord, otherwise the presence is set but hidden. Both systems can run the script at once (dual boot is fine), the activity is simply set from whichever one is running.
+
 ## Usage
 
 - **Add a CD:** type artist and album into *Catalog an Album*. Either tap *Catalog New Album* (auto-picks the best release, preferring MusicBrainz releases marked high quality), or tap *Search for Album*, look at the candidates (each links to its MusicBrainz page), set the number and tap *Confirm Selected Album*.
@@ -117,6 +159,7 @@ Create the Home Assistant token under *Profile → Security → Long-Lived Acces
 ## Known limitations
 
 - **No sync with the player.** The ESP32 starts at track 1 when it loads an album and then counts the MusicBrainz durations. If you pause, skip, or power-cycle the player mid-album, the display drifts from what is playing. Power the ESP32 and the player together and start albums from track 1.
+- **Discord presence follows the timer, not the player.** It has the same drift and no pause detection as the display. It clears when the last track's time is up, or `end_grace_seconds` after a track should have ended with no new report (for example when the ESP32 loses power).
 - Track durations come from MusicBrainz and can differ slightly from your disc's pressing, so the display can drift a little over a long album.
 - Very long track titles overflow the display width.
 - `cover.bmp` is only a debugging copy; the ESP32 reads the headerless `cover.raw`.
